@@ -7,6 +7,36 @@
     android:background="@drawable/walpaper1"
     tools:context=".MainActivity">
 
+    <Button
+        android:id="@+id/buttonChoose"
+        android:layout_width="68dp"
+        android:layout_height="35dp"
+        android:layout_weight="1"
+        android:text="Choose"
+        android:textSize="10sp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.402"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.145"
+        tools:ignore="MissingConstraints" />
+
+    <Button
+        android:id="@+id/buttonUpload"
+        android:layout_width="68dp"
+        android:layout_height="33dp"
+        android:layout_weight="1"
+        android:text="Upload"
+        android:textSize="10sp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.635"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.146"
+        tools:ignore="MissingConstraints" />
+
     <TextView
         android:id="@+id/mensaje_id2"
         android:layout_width="0dp"
@@ -41,6 +71,17 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintVertical_bias="0.705" />
+
+    <ImageView
+        android:id="@+id/imageView"
+        android:layout_width="77dp"
+        android:layout_height="72dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.048"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.027" />
 
     <Button
         android:id="@+id/loc1"
