@@ -1,0 +1,56 @@
+{
+  "project_info": {
+    "project_number": "711490529455",
+    "firebase_url": "https://ojo-oculto.firebaseio.com",
+    "project_id": "ojo-oculto",
+    "storage_bucket": "ojo-oculto.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:711490529455:android:ecf1e329c159c6921b0c5a",
+        "android_client_info": {
+          "package_name": "com.example.ojooculto"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "711490529455-4tdo1thm4107eq1l2j5g7g38ve9hdtkd.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.ojooculto",
+            "certificate_hash": "7eae7c4f0908e3045d4e2cd256735e2b8aa27419"
+          }
+        },
+        {
+          "client_id": "711490529455-322pb2b8646itsb8i9icob6pb85l72tt.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.ojooculto",
+            "certificate_hash": "a68500b58a09d3d3b9718f6834221789e7452de9"
+          }
+        },
+        {
+          "client_id": "711490529455-4ni7vekqul73l8hnn1ce0fmrtj0m71u0.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCyPJSzVzEMiWZ9AkmC7M9prR3C8NRxPLo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "711490529455-4ni7vekqul73l8hnn1ce0fmrtj0m71u0.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

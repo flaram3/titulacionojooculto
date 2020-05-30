@@ -1,0 +1,3 @@
+rootProject.name='Ojo Oculto'
+include ':mobile'
+include ':wear'
