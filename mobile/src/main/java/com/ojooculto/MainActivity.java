@@ -5,6 +5,7 @@ import android.app.ProgressDialog;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.location.Address;
 import android.location.Geocoder;
@@ -15,6 +16,7 @@ import android.location.LocationProvider;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.Settings;
+import android.telephony.SmsManager;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.View;
@@ -29,6 +31,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
+import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
 import com.bumptech.glide.Glide;
 import com.google.android.gms.tasks.Continuation;
@@ -307,10 +310,10 @@ public class MainActivity extends AppCompatActivity implements CameraService.Cam
 
         /**                 Reloj               **/
         /**Regístrese para recibir transmisiones locales, que crearemos en el siguiente paso**/
-        /*IntentFilter messageFilter = new IntentFilter(Intent.ACTION_SEND);
+        IntentFilter messageFilter = new IntentFilter(Intent.ACTION_SEND);
         Receiver messageReceiver = new Receiver();
         LocalBroadcastManager.getInstance(this).registerReceiver(messageReceiver, messageFilter);
-        */
+
     }
 
     //TODO VERIFICA LOS PERMISOS UBICACION
@@ -658,7 +661,7 @@ public class MainActivity extends AppCompatActivity implements CameraService.Cam
     public boolean onKeyDown(int keyCode, KeyEvent event) {
         // TODO Auto-generated method stub
         if (keyCode == event.KEYCODE_VOLUME_DOWN) {
-            //startSupportChat();
+            startSupportChat();
             //startService(new Intent(MainActivity.this, CameraService.class));
         }
         return super.onKeyDown(keyCode, event);
@@ -667,10 +670,10 @@ public class MainActivity extends AppCompatActivity implements CameraService.Cam
     //TODO FUNCION PARA ENVIAR MENSAJES
     //@RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
     public void sendSMS() {
+        String text = "Mi direccion es: " + txtDireccion.getText().toString() + ", coordenadas: " + txtCoordenadas.getText().toString();
         try {
-            //NUMBER = fullName.getText().toString();
-            //SmsManager smr = SmsManager.getDefault();
-            //smr.sendTextMessage(NUMBER, null,"Estoy en peligro!!! \n"+Text, null, null);
+            SmsManager smr = SmsManager.getDefault();
+            smr.sendTextMessage(txtNumeroAlerta.getText().toString(), null,"Estoy en peligro!!! \n"+text, null, null);
             //TODO Enviar 10 mensajes con imagen
             //TODO ya la active y nada
             //TODO este bundle con el numero no me convence
@@ -699,7 +702,7 @@ public class MainActivity extends AppCompatActivity implements CameraService.Cam
             } else {
                 Log.e("asd","DASDAS");
             }*/
-            //smr.sendTextMessage(phoneNo, null,"HOLA \nEstoy en peligro!!! \n"+Text, null, null);
+            smr.sendTextMessage(txtNumeroUsuario.getText().toString(), null,"HOLA \nEstoy en peligro!!! \n"+text, null, null);
             Toast.makeText(MainActivity.this, "SMS Enviado Satisfactoriamente", Toast.LENGTH_SHORT).show();
         }
         catch (Exception e){
@@ -709,19 +712,17 @@ public class MainActivity extends AppCompatActivity implements CameraService.Cam
     }
 //**************************************************************************************************************
 
-    /*
-
-    //FUNCION PARA EL MENSAJE DE WHATSAPP
     private void startSupportChat() {
+        String text = "Mi direccion es: " + txtDireccion.getText().toString() + ", coordenadas: " + txtCoordenadas.getText().toString();
         try {
             //NUMBER = fullName.getText().toString();
-            String bodyMessageFormal = "Estoy en peligro!!! \n" +Text;// Replace with your message.
+            String bodyMessageFormal = "Estoy en peligro!!! \n" +text;// Replace with your message.
             Intent intent = new Intent ( Intent.ACTION_VIEW);
-            intent.setData ( Uri.parse ( "https://wa.me/" + NUMBER + "/?text=" + bodyMessageFormal));
+            intent.setData ( Uri.parse ( "https://wa.me/" + txtNumeroAlerta.getText().toString() + "/?text=" + bodyMessageFormal));
             startActivity ( intent );
         } catch (Exception e) {
             e.printStackTrace ();
         }
 
-    } */
+    }
 }

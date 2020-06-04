@@ -7,7 +7,6 @@
     android:background="@drawable/walpaper1"
     tools:context=".Register">
 
-
     <TextView
         android:id="@+id/textView6"
         android:layout_width="281dp"

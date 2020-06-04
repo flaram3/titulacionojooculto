@@ -111,8 +111,8 @@ public class Register extends AppCompatActivity {
                                     .child(userID);
                             Map<String,Object> user = new HashMap<>();
                             user.put("id",userID);
-                            user.put("numeroAlerta","1233");
-                            user.put("fName",fullName);
+                            user.put("numeroAlerta",fullName);
+                            user.put("fName","default");
                             user.put("email",email);
                             user.put("phone",phone);
                             try {
