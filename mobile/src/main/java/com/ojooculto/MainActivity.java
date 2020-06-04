@@ -4,12 +4,8 @@ import android.Manifest;
 import android.app.ProgressDialog;
 import android.content.BroadcastReceiver;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.content.pm.PackageManager;
-import android.graphics.Bitmap;
-import android.hardware.camera2.CaptureRequest;
 import android.location.Address;
 import android.location.Geocoder;
 import android.location.Location;
@@ -17,284 +13,614 @@ import android.location.LocationListener;
 import android.location.LocationManager;
 import android.location.LocationProvider;
 import android.net.Uri;
-import android.net.wifi.hotspot2.pps.Credential;
-import android.os.Build;
 import android.os.Bundle;
-import android.os.Environment;
-import android.provider.MediaStore;
 import android.provider.Settings;
-import android.telephony.SmsManager;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.View;
-import android.widget.Button;
-import android.widget.EditText;
+import android.webkit.MimeTypeMap;
+import android.widget.ImageButton;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.RequiresApi;
-import androidx.appcompat.app.AlertDialog;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
-import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
+import com.bumptech.glide.Glide;
+import com.google.android.gms.tasks.Continuation;
+import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
+import com.google.android.gms.tasks.Task;
+import com.google.android.material.button.MaterialButton;
+import com.google.android.material.card.MaterialCardView;
+import com.google.android.material.snackbar.Snackbar;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
-import com.google.firebase.firestore.DocumentReference;
-import com.google.firebase.firestore.DocumentSnapshot;
-import com.google.firebase.firestore.EventListener;
-import com.google.firebase.firestore.FirebaseFirestore;
-import com.google.firebase.firestore.FirebaseFirestoreException;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ServerValue;
+import com.google.firebase.database.ValueEventListener;
 import com.google.firebase.storage.FirebaseStorage;
-import com.google.firebase.storage.OnProgressListener;
 import com.google.firebase.storage.StorageReference;
-import com.google.firebase.storage.UploadTask;
+import com.google.firebase.storage.StorageTask;
+import com.ojooculto.BottomSheets.EditarPerfilBottomSheet;
+import com.ojooculto.Dialogos.DialogVerDireccion;
+import com.ojooculto.Dialogos.DialogoCode;
+import com.ojooculto.Dialogos.MessageDialog;
+import com.ojooculto.Dialogos.MessageDialogBuilder;
+import com.ojooculto.Moldes.Usuario;
+import com.theartofdev.edmodo.cropper.CropImage;
 
-
-import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.util.ArrayList;
-import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 
-import javax.annotation.Nullable;
+import de.hdodenhof.circleimageview.CircleImageView;
 
-public class MainActivity extends AppCompatActivity {
-    private static final int GALLERY_INTENT_CODE = 1023 ;
-    TextView fullName,email,phone,verifyMsg;
-    FirebaseAuth fAuth;
-    FirebaseFirestore fStore;
-    String userId;
-    Button resendCode;
-    Button resetPassLocal,changeProfileImage;
-    FirebaseUser user;
-    ImageView profileImage;
-    StorageReference storageReference;
+public class MainActivity extends AppCompatActivity implements CameraService.CameraServiceListener {
 
+    //TODO CONTADOR DE INTENTOS DEL BOTON FISICO
+    private int contador;
+    private boolean isService;
+    private String idRef;
+    private int contadorUbicacion;
 
-    //VARIABLES DE LOCALIZACION
-    TextView mensaje1;
-    TextView mensaje2;
-    String Text;
-    String NUMBER;
-    //VARIABLES DE LA CAJA DE TEXTO
-    private Button localizacion;
-    int contador;
+    //TODO PERFIL
+    private TextView txtNumeroAlerta;
+    private TextView txtNumeroUsuario;
+    private TextView txtCorreo;
+    private TextView txtNombre;
+    private CircleImageView imgPerfil;
+    private TextView txtCorreoVerificado;
+    private ImageView imgErrorCorreo;
 
-    static final int  MY_PERMISSIONS_REQUEST_READ_CONTACTS= 2;
+    //TODO USUARIO DE FIREBASE
+    private FirebaseUser firebaseUser;
 
-    private ArrayList<String> direccones;
+    //TODO UBICACION
+    private LinearLayout lytUbicacion;
+    private MaterialCardView cardError;
+    private TextView txtCoordenadas;
+    private TextView txtDireccion;
+    private LocationManager locationManager;
+    private Location location;
+    private MaterialCardView cardErrorGPS;
+    private LinearLayout lytGPS;
 
-    //a constant to track the file chooser intent
-    private static final int PICK_IMAGE_REQUEST = 234;
+    //TODO PERMISOS
+    private final String[] PERMISOS_UBICACION = {
+            Manifest.permission.ACCESS_FINE_LOCATION,
+            Manifest.permission.ACCESS_COARSE_LOCATION,
+            Manifest.permission.CAMERA,
+            Manifest.permission.SEND_SMS,
+            Manifest.permission.READ_CONTACTS,
+            Manifest.permission.READ_EXTERNAL_STORAGE,
+            Manifest.permission.WRITE_EXTERNAL_STORAGE,
+    };
 
-    //Buttons
-    private Button buttonChoose;
-    private Button buttonUpload;
+    private final String[] PERMISOS_IMAGEN = {
+            Manifest.permission.READ_EXTERNAL_STORAGE,
+            Manifest.permission.WRITE_EXTERNAL_STORAGE,
+    };
 
-    //ImageView
-    private ImageView imageView;
-
-    //a Uri object to store file path
-    private Uri filePath;
-
+    private final int CODIGO_PERMISOS_UBICACION = 101;
+    private final int CODIGO_PERMISOS_IMAGEN = 102;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        localizacion = findViewById(R.id.loc1);
-        phone = findViewById(R.id.profilePhone);
-        fullName = findViewById(R.id.profileName);
-        email    = findViewById(R.id.profileEmail);
-        mensaje1 = findViewById(R.id.mensaje_id);
-        mensaje2 = findViewById(R.id.mensaje_id2);
-        resetPassLocal = findViewById(R.id.resetPasswordLocal);
 
-        profileImage = findViewById(R.id.profileImage);
-        changeProfileImage = findViewById(R.id.changeProfile);
+        //TODO CONEXION CON EL SERVICIO
+        CameraService.setCameraServiceListener(MainActivity.this);
 
-        /**                 Reloj               **/
-        /**Regístrese para recibir transmisiones locales, que crearemos en el siguiente paso**/
-        IntentFilter messageFilter = new IntentFilter(Intent.ACTION_SEND);
-        Receiver messageReceiver = new Receiver();
-        LocalBroadcastManager.getInstance(this).registerReceiver(messageReceiver, messageFilter);
+        //TODO PERFIL
+        txtNumeroUsuario = findViewById(R.id.txtNumeroUsuario);
+        txtCorreo = findViewById(R.id.txtCorreo);
+        txtNumeroAlerta = findViewById(R.id.txtNumeroAlerta);
+        txtNombre = findViewById(R.id.txtNombre);
+        imgPerfil = findViewById(R.id.imgPerfil);
+        txtCorreoVerificado = findViewById(R.id.txtCorreoVerificado);
+        imgErrorCorreo = findViewById(R.id.icon3);
 
-        //PERMISOS**********************************************************************************************************************************************//
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
-                ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED)
-        {
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION,
-                    Manifest.permission.CAMERA, Manifest.permission.SEND_SMS, Manifest.permission.READ_CONTACTS,
-                    Manifest.permission.READ_EXTERNAL_STORAGE,Manifest.permission.WRITE_EXTERNAL_STORAGE, Manifest.permission.INTERNET, Manifest.permission.ACCESS_NETWORK_STATE}, 1000);
-            Toast.makeText(MainActivity.this, "Tienes que refrescar la aplicaccion \nDesliza hacia arriba.", Toast.LENGTH_SHORT).show();
+        //TODO USUARIO DE FIREBASE
+        firebaseUser = FirebaseAuth.getInstance().getCurrentUser();
 
-        } else {
-            locationStart();
-        }
-        //**********************************************************************************************************************************************************************************************************//
-        fAuth = FirebaseAuth.getInstance();
-        fStore = FirebaseFirestore.getInstance();
-        storageReference = FirebaseStorage.getInstance().getReference();
+        //TODO UBICACION
+        txtCoordenadas = findViewById(R.id.txtCoordenadas);
+        txtDireccion = findViewById(R.id.txtDireccion);
+        lytUbicacion = findViewById(R.id.lytUbicacion);
+        cardError = findViewById(R.id.card_error);
+        cardErrorGPS = findViewById(R.id.card_error_gps);
+        lytGPS = findViewById(R.id.lytGPS);
+        locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
 
-        StorageReference profileRef = storageReference.child("users/"+fAuth.getCurrentUser().getUid()+"/profile.jpg");
-        profileRef.getDownloadUrl().addOnSuccessListener(new OnSuccessListener<Uri>() {
-
-            @Override
-            public void onSuccess(Uri uri) {
-                //Picasso.get().load(uri).into(profileImage);
-            }
-        });
-
-        resendCode = findViewById(R.id.resendCode);
-        verifyMsg = findViewById(R.id.verifyMsg);
-
-
-        userId = fAuth.getCurrentUser().getUid();
-         user = fAuth.getCurrentUser();
-
-        if(!user.isEmailVerified()){
-            verifyMsg.setVisibility(View.VISIBLE);
-            resendCode.setVisibility(View.VISIBLE);
-
-            resendCode.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(final View v) {
-
-                    user.sendEmailVerification().addOnSuccessListener(new OnSuccessListener<Void>() {
-                        @Override
-                        public void onSuccess(Void aVoid) {
-                            Toast.makeText(v.getContext(), "El correo de verificacion ha sido enviado.", Toast.LENGTH_SHORT).show();
-                        }
-                    }).addOnFailureListener(new OnFailureListener() {
-                        @Override
-                        public void onFailure(@NonNull Exception e) {
-                            Log.d("tag", "El correo de verificacion no se envio" + e.getMessage());
-                        }
-                    });
-                }
-            });
-
-        }
-
-        DocumentReference documentReference = fStore.collection("users").document(userId);
-        documentReference.addSnapshotListener(this, new EventListener<DocumentSnapshot>() {
-            @Override
-            public void onEvent(@Nullable DocumentSnapshot documentSnapshot, @Nullable FirebaseFirestoreException e) {
-                if(documentSnapshot.exists()){
-                    phone.setText(documentSnapshot.getString("phone"));
-                    fullName.setText(documentSnapshot.getString("fName"));
-                    email.setText(documentSnapshot.getString("email"));
-
-                }else {
-                    Log.d("tag", "onEvent: Document do not exists");
-                }
-            }
-        });
-
-        resetPassLocal.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-
-                final EditText resetPassword = new EditText(v.getContext());
-
-                final AlertDialog.Builder passwordResetDialog = new AlertDialog.Builder(v.getContext());
-                passwordResetDialog.setTitle("Restablecer contraseña ?");
-                passwordResetDialog.setMessage("Ingresa una contraseña de minimo 6 caracteres!.");
-                passwordResetDialog.setView(resetPassword);
-
-                passwordResetDialog.setPositiveButton("Yes", new DialogInterface.OnClickListener() {
+        //TODO Referencia para obtener la informacion del usuario
+        FirebaseDatabase.getInstance().getReference("Usuarios")
+                .child(firebaseUser.getUid())
+                .addValueEventListener(new ValueEventListener() {
                     @Override
-                    public void onClick(DialogInterface dialog, int which) {
-                        // extract the email and send reset link
-                        String newPassword = resetPassword.getText().toString();
-                        user.updatePassword(newPassword).addOnSuccessListener(new OnSuccessListener<Void>() {
+                    public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+                        if (!dataSnapshot.exists()) {
+                            return;
+                        }
+                        Usuario usuario = dataSnapshot.getValue(Usuario.class);
+                        txtNombre.setText(usuario.getfName());
+                        txtCorreo.setText(usuario.getEmail());
+                        txtNumeroUsuario.setText(usuario.getPhone());
+                        txtNumeroAlerta.setText(usuario.getNumeroAlerta());
+                        if (usuario.getImg().equals("default")) {
+                            imgPerfil.setImageResource(R.drawable.ic_person_black_24dp);
+                        } else {
+                            Glide.with(getApplicationContext())
+                                    .load(usuario.getImg())
+                                    .into(imgPerfil);
+
+                        }
+                    }
+
+                    @Override
+                    public void onCancelled(@NonNull DatabaseError databaseError) {
+
+                    }
+                });
+
+        //TODO PROCESO PARA ACTIVAR LA UBICACION
+        if (verificarPermisos()) {
+            proceso();
+        } else {
+            ActivityCompat.requestPermissions(MainActivity.this, PERMISOS_UBICACION, CODIGO_PERMISOS_UBICACION);
+        }
+
+        //TODO Boton para cerrar sesion
+        ((ImageButton) findViewById(R.id.btnCerrarSesion))
+                .setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View view) {
+                        final MessageDialog dialog = new MessageDialog(MainActivity.this, new MessageDialogBuilder()
+                                .setTitle("Alerta")
+                                .setMessage("¿Esta seguro que desea cerrar sesión?")
+                                .setPositiveButtonText("Aceptar")
+                                .setNegativeButtonText("Cancelar")
+                        );
+                        dialog.show();
+                        dialog.setPositiveButtonListener(new View.OnClickListener() {
                             @Override
-                            public void onSuccess(Void aVoid) {
-                                Toast.makeText(MainActivity.this, "Contraseña restablecida.", Toast.LENGTH_SHORT).show();
+                            public void onClick(View view) {
+                                FirebaseAuth.getInstance().signOut();
+                                dialog.dismiss();
+                                startActivity(new Intent(MainActivity.this, Register.class));
+                                finish();
                             }
-                        }).addOnFailureListener(new OnFailureListener() {
+                        });
+                        dialog.setNegativeButtonListener(new View.OnClickListener() {
                             @Override
-                            public void onFailure(@NonNull Exception e) {
-                                Toast.makeText(MainActivity.this, "Contraseña no restablecida.", Toast.LENGTH_SHORT).show();
+                            public void onClick(View view) {
+                                dialog.dismiss();
                             }
                         });
                     }
                 });
 
-                passwordResetDialog.setNegativeButton("No", new DialogInterface.OnClickListener() {
+        //TODO Boton para editar el perfil
+        ((ImageButton) findViewById(R.id.btnEditarPerfil))
+                .setOnClickListener(new View.OnClickListener() {
                     @Override
-                    public void onClick(DialogInterface dialog, int which) {
-                       // close
+                    public void onClick(View view) {
+                        EditarPerfilBottomSheet bottomSheet = new EditarPerfilBottomSheet(MainActivity.this);
+                        bottomSheet.show(getSupportFragmentManager(),bottomSheet.getTag());
                     }
                 });
 
-                passwordResetDialog.create().show();
+        //TODO INVOCA UNA PANTALLA PARA ACTIVAR PERMISOS
+        ((TextView) findViewById(R.id.txtPermisos))
+                .setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View view) {
+                        Uri uri = new Uri.Builder()
+                                .scheme("package")
+                                .opaquePart(getPackageName())
+                                .build();
+                        Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, uri);
+                        startActivity(intent);
+                    }
+                });
 
-            }
-        });
+        //TODO INVOCA UN DIALOGO CON UN MAPA DE UBICACION
+        ((ImageButton) findViewById(R.id.btnVerEnMapa))
+                .setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View view) {
+                        if (location != null) {
+                            DialogVerDireccion dialogVerDireccion = new DialogVerDireccion(location);
+                            dialogVerDireccion.show(getSupportFragmentManager(),dialogVerDireccion.getTag());
+                        }
+                    }
+                });
 
-        changeProfileImage.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                // open gallery
-                Intent i = new Intent(v.getContext(),EditProfile.class);
-                i.putExtra("fullName",fullName.getText().toString());
-                i.putExtra("email",email.getText().toString());
-                i.putExtra("phone",phone.getText().toString());
-                startActivity(i);
+        //TODO PROCESO PARA MOSTRAR LOS SINIESTROS
+        ((MaterialButton) findViewById(R.id.btnSiniestros))
+                .setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View view) {
+                        DialogoCode dialogoCode = new DialogoCode();
+                        dialogoCode.show(getSupportFragmentManager(),dialogoCode.getTag());
+                    }
+                });
 
-            }
-        });
-        localizacion.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                locationStart();
-                Toast.makeText(MainActivity.this, "Localizacion obtenida.", Toast.LENGTH_SHORT).show();
-            }});
-        //getting views from layout
-        buttonChoose = (Button) findViewById(R.id.buttonChoose);
-        buttonUpload = (Button) findViewById(R.id.buttonUpload);
+        //TODO VERIFICA EL CORREO
+        if(!firebaseUser.isEmailVerified()){
+            txtCorreoVerificado.setVisibility(View.VISIBLE);
+            imgErrorCorreo.setImageResource(R.drawable.ic_baseline_email_error);
 
-        imageView = (ImageView) findViewById(R.id.imageView);
+            ((ImageButton) findViewById(R.id.btnVerificarCorreo))
+                    .setOnClickListener(new View.OnClickListener() {
+                        @Override
+                        public void onClick(View view) {
+                            final MessageDialog dialog = new MessageDialog(MainActivity.this, new MessageDialogBuilder()
+                                    .setTitle("Alerta")
+                                    .setMessage("Para verificar es necesario enviar un correo, ¿Desea enviarlo ahora?")
+                                    .setPositiveButtonText("Enviar")
+                                    .setNegativeButtonText("Más tarde")
+                            );
+                            dialog.show();
+                            dialog.setPositiveButtonListener(new View.OnClickListener() {
+                                @Override
+                                public void onClick(View view) {
+                                    firebaseUser.sendEmailVerification().addOnSuccessListener(new OnSuccessListener<Void>() {
+                                        @Override
+                                        public void onSuccess(Void aVoid) {
+                                            Toast.makeText(MainActivity.this, "El correo de verificacion ha sido enviado.", Toast.LENGTH_SHORT).show();
+                                            dialog.dismiss();
+                                        }
+                                    }).addOnFailureListener(new OnFailureListener() {
+                                        @Override
+                                        public void onFailure(@NonNull Exception e) {
+                                            Log.d("tag", "El correo de verificacion no se envio" + e.getMessage());
+                                        }
+                                    });
+                                }
+                            });
+                            dialog.setNegativeButtonListener(new View.OnClickListener() {
+                                @Override
+                                public void onClick(View view) {
+                                    dialog.dismiss();
+                                }
+                            });
+                        }
+                    });
+        } else {
+            txtCorreoVerificado.setVisibility(View.GONE);
+            imgErrorCorreo.setImageResource(R.drawable.ic_email_black_24dp);
+            ((ImageButton) findViewById(R.id.btnVerificarCorreo))
+                    .setVisibility(View.GONE);
+        }
 
-
-        buttonChoose.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                showFileChooser();
-            }
-        });
-        buttonUpload.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                uploadFile();
-            }
-        });
         /*
-        public void onClick(View view) {
-            //if the clicked button is choose
-            if (view == buttonChoose) {
-                showFileChooser();
-            }
-            //if the clicked button is upload
-            else if (view == buttonUpload) {
-                uploadFile();
-            }
-        }*/
+
+        /**                 Reloj               **/
+        /**Regístrese para recibir transmisiones locales, que crearemos en el siguiente paso**/
+        /*IntentFilter messageFilter = new IntentFilter(Intent.ACTION_SEND);
+        Receiver messageReceiver = new Receiver();
+        LocalBroadcastManager.getInstance(this).registerReceiver(messageReceiver, messageFilter);
+        */
     }
 
-    //TODO FIN DEL ONCREATE
-    //*************************************************************************************************
-    /**Aqui se hace lo que se escuche del reloj**/
+    //TODO VERIFICA LOS PERMISOS UBICACION
+    private boolean verificarPermisos() {
+        for (String permiso : PERMISOS_UBICACION) {
+            if (ActivityCompat.checkSelfPermission(MainActivity.this, permiso) != PackageManager.PERMISSION_GRANTED) {
+                return false;
+            }
+        }
+        return true;
+    }
 
+    //TODO VERIFICA LOS PERMISOS UBICACION
+    private boolean verificarPermisosImagen() {
+        for (String permiso : PERMISOS_IMAGEN) {
+            if (ActivityCompat.checkSelfPermission(MainActivity.this, permiso) != PackageManager.PERMISSION_GRANTED) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    //TODO DESPUES DE PEDIR LOS PERMISOS
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == CODIGO_PERMISOS_UBICACION) {
+            boolean ban = true;
+            for (int grantResult : grantResults) {
+                if (grantResult == PackageManager.PERMISSION_DENIED) {
+                    ban = false;
+                    break;
+                }
+            }
+
+            if (ban) {
+                proceso();
+            } else {
+                cardError.setVisibility(View.VISIBLE);
+                lytUbicacion.setVisibility(View.GONE);
+                Snackbar.make(findViewById(R.id.lytMain), "Error al activar los permisos", Snackbar.LENGTH_LONG)
+                        .setAction("Activar", new View.OnClickListener() {
+                            @Override
+                            public void onClick(View view) {
+                                Uri uri = new Uri.Builder()
+                                        .scheme("package")
+                                        .opaquePart(getPackageName())
+                                        .build();
+                                Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, uri);
+                                startActivity(intent);
+                            }
+                        })
+                        .show();
+            }
+        } else if (requestCode == CODIGO_PERMISOS_IMAGEN) {
+            boolean ban = true;
+            for (int grantResult : grantResults) {
+                if (grantResult == PackageManager.PERMISSION_DENIED) {
+                    ban = false;
+                    break;
+                }
+            }
+
+            if (ban) {
+                CropImage.activity()
+                        .setAspectRatio(1,1)
+                        .start(MainActivity.this);
+            } else {
+                lytUbicacion.setVisibility(View.GONE);
+                Snackbar.make(findViewById(R.id.lytMain), "Error al activar los permisos", Snackbar.LENGTH_LONG)
+                        .setAction("Activar", new View.OnClickListener() {
+                            @Override
+                            public void onClick(View view) {
+                                Uri uri = new Uri.Builder()
+                                        .scheme("package")
+                                        .opaquePart(getPackageName())
+                                        .build();
+                                Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, uri);
+                                startActivity(intent);
+                            }
+                        })
+                        .show();
+            }
+        }
+    }
+
+    //TODO LO QUE SUCEDE DESPUES DE QUE LOS PERMISOS SE HAN ACEPTADOR
+    private void proceso() {
+        cardError.setVisibility(View.GONE);
+        lytUbicacion.setVisibility(View.VISIBLE);
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            return;
+        }
+        boolean gpsEnabled = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER);
+        if (!gpsEnabled) {
+            Intent settingsIntent = new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS);
+            startActivity(settingsIntent);
+            lytGPS.setVisibility(View.GONE);
+            cardErrorGPS.setVisibility(View.VISIBLE);
+        } else {
+            locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, locationListener);
+            locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 0, 0, locationListener);
+        }
+    }
+
+    //TODO CICLO DE VIDA DE UN ACTIVITY
+    @Override
+    protected void onResume() {
+        super.onResume();
+        HashMap<String, Object> hashMap = new HashMap<>();
+        hashMap.put("time", ServerValue.TIMESTAMP);
+        hashMap.put("conexion", true);
+        if (firebaseUser != null) {
+            FirebaseDatabase.getInstance().getReference("Usuarios")
+                    .child(firebaseUser.getUid())
+                    .updateChildren(hashMap);
+        }
+    }
+
+    //TODO CICLO DE VIDA DE UN ACTIVITY
+    @Override
+    protected void onPause() {
+        super.onPause();
+        HashMap<String, Object> hashMap = new HashMap<>();
+        hashMap.put("time", ServerValue.TIMESTAMP);
+        hashMap.put("conexion", false);
+        if (firebaseUser != null) {
+            FirebaseDatabase.getInstance().getReference("Usuarios")
+                    .child(firebaseUser.getUid())
+                    .updateChildren(hashMap);
+        }
+    }
+
+    //TODO CICLO DE VIDA DE UN ACTIVITY
+    @Override
+    protected void onRestart() {
+        super.onRestart();
+        if(verificarPermisos()) {
+            proceso();
+        }
+    }
+
+    //TODO CICLO DE VIDA DE UN ACTIVITY
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        locationManager.removeUpdates(locationListener);
+    }
+
+    //TODO OBJETO QUE MANEJA LA UBICACION
+    private final LocationListener locationListener = new LocationListener() {
+        @Override
+        public void onLocationChanged(Location location) {
+            MainActivity.this.location = location;
+            String text = "Lat = "
+                    + location.getLatitude() + "\nLong = " + location.getLongitude();
+            txtCoordenadas.setText(text);
+            if (location.getLatitude() != 0.0 && location.getLongitude() != 0.0) {
+                try {
+                    Geocoder geocoder = new Geocoder(MainActivity.this, Locale.getDefault());
+                    List<Address> list = geocoder.getFromLocation(location.getLatitude(), location.getLongitude(), 1);
+                    if (!list.isEmpty()) {
+                        Address dirCalle = list.get(0);
+                        txtDireccion.setText(dirCalle.getAddressLine(0));
+                    }
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+            if (isService && idRef != null && contador == contadorUbicacion) {
+                isService = false;
+                HashMap<String, Object> hashMap = new HashMap<>();
+                hashMap.put("lat",location.getLatitude());
+                hashMap.put("lon",location.getLongitude());
+                hashMap.put("ubicacion",true);
+                FirebaseDatabase.getInstance().getReference("Siniestros")
+                        .child(FirebaseAuth.getInstance().getCurrentUser().getUid())
+                        .child(idRef)
+                        .updateChildren(hashMap);
+            }
+            contadorUbicacion++;
+        }
+
+        @Override
+        public void onStatusChanged(String provider, int status, Bundle extras) {
+            switch (status) {
+                case LocationProvider.AVAILABLE:
+                    Log.d("debug", "LocationProvider.AVAILABLE");
+                    break;
+                case LocationProvider.OUT_OF_SERVICE:
+                    Log.d("debug", "LocationProvider.OUT_OF_SERVICE");
+                    break;
+                case LocationProvider.TEMPORARILY_UNAVAILABLE:
+                    Log.d("debug", "LocationProvider.TEMPORARILY_UNAVAILABLE");
+                    break;
+            }
+        }
+
+        @Override
+        public void onProviderEnabled(String provider) {
+            lytGPS.setVisibility(View.VISIBLE);
+            cardErrorGPS.setVisibility(View.GONE);
+        }
+
+        @Override
+        public void onProviderDisabled(String provider) {
+            lytGPS.setVisibility(View.GONE);
+            cardErrorGPS.setVisibility(View.VISIBLE);
+        }
+    };
+
+    //TODO PROCESO PARA CAMBIAR LA IMAGEN DE PERFIL
+    public void cargarImagen() {
+        if(verificarPermisosImagen()) {
+            CropImage.activity()
+                    .setAspectRatio(1,1)
+                    .start(MainActivity.this);
+        } else {
+            ActivityCompat.requestPermissions(MainActivity.this,PERMISOS_IMAGEN,CODIGO_PERMISOS_IMAGEN);
+        }
+    }
+
+    //TODO IMAGEN SELECIONADA
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
+        if (requestCode == CropImage.CROP_IMAGE_ACTIVITY_REQUEST_CODE && resultCode == RESULT_OK) {
+
+            CropImage.ActivityResult result = CropImage.getActivityResult(data);
+
+            Uri uri = result.getUri();
+
+            if (uri != null) {
+
+                final ProgressDialog progressDialog = new ProgressDialog(MainActivity.this);
+                progressDialog.setMessage("Subiendo...");
+                progressDialog.show();
+
+                final StorageReference storageReference = FirebaseStorage.getInstance().getReference("ImagenesPerfil")
+                        .child(System.currentTimeMillis() + "." + obtnerExtension(uri));
+                StorageTask task = storageReference.putFile(uri);
+                task.continueWithTask(new Continuation() {
+                    @Override
+                    public Object then(@NonNull Task task) throws Exception {
+                        if (!task.isComplete()) {
+                            throw task.getException();
+                        }
+                        return storageReference.getDownloadUrl();
+                    }
+                }).addOnCompleteListener(new OnCompleteListener<Uri>() {
+                    @Override
+                    public void onComplete(@NonNull Task<Uri> task) {
+                        if (task.isSuccessful()) {
+                            Uri tmpUri = task.getResult();
+                            assert tmpUri != null;
+                            String url = tmpUri.toString();
+
+                            HashMap<String, Object> hashMap = new HashMap<>();
+                            hashMap.put("img", url);
+
+                            FirebaseDatabase.getInstance().getReference("Usuarios")
+                                    .child(FirebaseAuth.getInstance().getCurrentUser().getUid())
+                                    .updateChildren(hashMap)
+                                    .addOnCompleteListener(new OnCompleteListener<Void>() {
+                                        @Override
+                                        public void onComplete(@NonNull Task<Void> task) {
+                                            if (task.isSuccessful()) {
+                                                Toast.makeText(MainActivity.this, "Actualizacion exitosa", Toast.LENGTH_SHORT).show();
+                                                progressDialog.dismiss();
+                                            } else {
+                                                Toast.makeText(MainActivity.this, "Ha ocurrido un error, intentelo mas tarde", Toast.LENGTH_SHORT).show();
+                                                progressDialog.dismiss();
+                                            }
+                                        }
+                                    });
+
+                        } else {
+                            Toast.makeText(MainActivity.this, "Ha ocurrido un error, intentelo mas tarde", Toast.LENGTH_SHORT).show();
+                            progressDialog.dismiss();
+                        }
+                    }
+                }).addOnFailureListener(new OnFailureListener() {
+                    @Override
+                    public void onFailure(@NonNull Exception e) {
+                        Toast.makeText(MainActivity.this, "Ha ocurrido un error, intentelo mas tarde", Toast.LENGTH_SHORT).show();
+                        progressDialog.dismiss();
+                    }
+                });
+
+            } else {
+                Toast.makeText(MainActivity.this, "Ninguna imagen seleccionada", Toast.LENGTH_SHORT).show();
+            }
+        }
+    }
+
+    //TODO OBTIENE LA EXTENSION DE UN ARCHIVO
+    private String obtnerExtension(Uri uri) {
+        return MimeTypeMap.getFileExtensionFromUrl(uri.toString());
+    }
+
+    @Override
+    public void onLocationListener(String ref) {
+        isService = true;
+        idRef = ref;
+        contadorUbicacion = 0;
+    }
+
+
+    //TODO LO DEMAS QUE NO SE QUE HACE
     public class Receiver extends BroadcastReceiver {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -304,19 +630,6 @@ public class MainActivity extends AppCompatActivity {
             startService(new Intent(MainActivity.this, CameraService.class));
         }
     }
-
-
-
-
-
-
-
-
-
-
-
-
-
 
     private void abrirmiapp() {
         Intent i = getPackageManager().getLaunchIntentForPackage("com.ojooculto");
@@ -334,16 +647,18 @@ public class MainActivity extends AppCompatActivity {
                 startService(new Intent(MainActivity.this, CameraService.class));
                 Log.e("ALERTA","SERVICIO INICIADO");
                 sendSMS();
+                contador = 0;
             }else {
                 Log.e("ERROR","INTENTELO MAS TARDE");
             }
         }
         return super.onKeyUp(keyCode, event);
     }
+
     public boolean onKeyDown(int keyCode, KeyEvent event) {
         // TODO Auto-generated method stub
         if (keyCode == event.KEYCODE_VOLUME_DOWN) {
-            startSupportChat();
+            //startSupportChat();
             //startService(new Intent(MainActivity.this, CameraService.class));
         }
         return super.onKeyDown(keyCode, event);
@@ -353,9 +668,9 @@ public class MainActivity extends AppCompatActivity {
     //@RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
     public void sendSMS() {
         try {
-            NUMBER = fullName.getText().toString();
-            SmsManager smr = SmsManager.getDefault();
-            smr.sendTextMessage(NUMBER, null,"Estoy en peligro!!! \n"+Text, null, null);
+            //NUMBER = fullName.getText().toString();
+            //SmsManager smr = SmsManager.getDefault();
+            //smr.sendTextMessage(NUMBER, null,"Estoy en peligro!!! \n"+Text, null, null);
             //TODO Enviar 10 mensajes con imagen
             //TODO ya la active y nada
             //TODO este bundle con el numero no me convence
@@ -394,10 +709,12 @@ public class MainActivity extends AppCompatActivity {
     }
 //**************************************************************************************************************
 
+    /*
+
     //FUNCION PARA EL MENSAJE DE WHATSAPP
     private void startSupportChat() {
         try {
-            NUMBER = fullName.getText().toString();
+            //NUMBER = fullName.getText().toString();
             String bodyMessageFormal = "Estoy en peligro!!! \n" +Text;// Replace with your message.
             Intent intent = new Intent ( Intent.ACTION_VIEW);
             intent.setData ( Uri.parse ( "https://wa.me/" + NUMBER + "/?text=" + bodyMessageFormal));
@@ -406,192 +723,5 @@ public class MainActivity extends AppCompatActivity {
             e.printStackTrace ();
         }
 
-    }
-
-    //FUNCION DE LOCATIONSTART
-    private void locationStart() {
-        LocationManager mlocManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
-        Localizacion Local = new Localizacion();
-        Local.setMainActivity(this);
-        final boolean gpsEnabled = mlocManager.isProviderEnabled(LocationManager.GPS_PROVIDER);
-        if (!gpsEnabled) {
-            Intent settingsIntent = new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS);
-            startActivity(settingsIntent);
-        }
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED
-                && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION,}, 1000);
-            return;
-        }
-        mlocManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 0, 0, (LocationListener) Local);
-        mlocManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, (LocationListener) Local);
-        mensaje1.setText("Localización agregada");
-        mensaje2.setText("");
-    }
-    //METODO PARA REQUERIR LOS PERMISOS
-    public void onRequestPermissionsResult1(int requestCode, String[] permissions, int[] grantResults) {
-        switch (requestCode) {
-            case 1:
-                if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    locationStart();
-                    break;
-                }
-
-
-        }
-    }
-    //**************************************************************************************************************
-    //FUNCION DE LOCALIZACION
-    private void setLocation(Location loc) {
-        //Obtener la direccion de la calle a partir de la latitud y la longitud
-        if (loc.getLatitude() != 0.0 && loc.getLongitude() != 0.0) {
-            try {
-                Geocoder geocoder = new Geocoder(this, Locale.getDefault());
-                List<Address> list = geocoder.getFromLocation(
-                        loc.getLatitude(), loc.getLongitude(), 1);
-                if (!list.isEmpty()) {
-                    Address DirCalle = list.get(0);
-                    mensaje2.setText("Mi direccion es: \n"
-                            + DirCalle.getAddressLine(0));
-                }
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-    }
-
-    public void getImages(ArrayList<String> direcciones) {
-        this.direccones = direcciones;
-    }
-
-    /* Aqui empieza la Clase Localizacion */
-    public class Localizacion implements LocationListener {
-        MainActivity mainActivity;
-
-        public MainActivity getMainActivity() {
-            return mainActivity;
-        }
-
-        public void setMainActivity(MainActivity mainActivity) {
-            this.mainActivity = mainActivity;
-        }
-        @Override
-        public void onLocationChanged(Location loc) {
-            // Este metodo se ejecuta cada vez que el GPS recibe nuevas coordenadas
-            // debido a la deteccion de un cambio de ubicacion
-            loc.getLatitude();
-            loc.getLongitude();
-            Text = "Mi ubicacion actual es: " + "\n Lat = "
-                    + loc.getLatitude() + "\n Long = " + loc.getLongitude();
-            mensaje1.setText(Text);
-            this.mainActivity.setLocation(loc);
-        }
-
-        @Override
-        public void onProviderDisabled(String provider) {
-            /* Este metodo se ejecuta cuando el GPS es desactivado */
-            mensaje1.setText("GPS Desactivado");
-        }
-
-        @Override
-        public void onProviderEnabled(String provider) {
-            // Este metodo se ejecuta cuando el GPS es activado
-            mensaje1.setText("GPS Activado");
-        }
-
-        @Override
-        public void onStatusChanged(String provider, int status, Bundle extras) {
-            switch (status) {
-                case LocationProvider.AVAILABLE:
-                    Log.d("debug", "LocationProvider.AVAILABLE");
-                    break;
-                case LocationProvider.OUT_OF_SERVICE:
-                    Log.d("debug", "LocationProvider.OUT_OF_SERVICE");
-                    break;
-                case LocationProvider.TEMPORARILY_UNAVAILABLE:
-                    Log.d("debug", "LocationProvider.TEMPORARILY_UNAVAILABLE");
-                    break;
-            }
-        }
-    }
-
-    public void logout(View view) {
-        FirebaseAuth.getInstance().signOut();//logout
-        startActivity(new Intent(getApplicationContext(),Login.class));
-        finish();
-    }
-    //method to show file chooser
-    private void showFileChooser() {
-        Intent intent = new Intent();
-        intent.setType("image/*");
-        intent.setAction(Intent.ACTION_GET_CONTENT);
-        startActivityForResult(Intent.createChooser(intent, "Select Picture"), PICK_IMAGE_REQUEST);
-    }
-
-    //handling the image chooser activity result
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == PICK_IMAGE_REQUEST && resultCode == RESULT_OK && data != null && data.getData() != null) {
-            filePath = data.getData();
-            try {
-                Bitmap bitmap = MediaStore.Images.Media.getBitmap(getContentResolver(), filePath);
-                imageView.setImageBitmap(bitmap);
-
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-    }
-
-
-    //this method will upload the file
-    private void uploadFile() {
-        //if there is a file to upload
-        if (filePath != null) {
-            //displaying a progress dialog while upload is going on
-            final ProgressDialog progressDialog = new ProgressDialog(this);
-            progressDialog.setTitle("Uploading");
-            progressDialog.show();
-
-            StorageReference riversRef = storageReference.child("images/pic.jpg");
-            riversRef.putFile(filePath)
-                    .addOnSuccessListener(new OnSuccessListener<UploadTask.TaskSnapshot>() {
-                        @Override
-                        public void onSuccess(UploadTask.TaskSnapshot taskSnapshot) {
-                            //if the upload is successfull
-                            //hiding the progress dialog
-                            progressDialog.dismiss();
-
-                            //and displaying a success toast
-                            Toast.makeText(getApplicationContext(), "File Uploaded ", Toast.LENGTH_LONG).show();
-                        }
-                    })
-                    .addOnFailureListener(new OnFailureListener() {
-                        @Override
-                        public void onFailure(@NonNull Exception exception) {
-                            //if the upload is not successfull
-                            //hiding the progress dialog
-                            progressDialog.dismiss();
-
-                            //and displaying error message
-                            Toast.makeText(getApplicationContext(), exception.getMessage(), Toast.LENGTH_LONG).show();
-                        }
-                    })
-                    .addOnProgressListener(new OnProgressListener<UploadTask.TaskSnapshot>() {
-                        @Override
-                        public void onProgress(UploadTask.TaskSnapshot taskSnapshot) {
-                            //calculating progress percentage
-                            double progress = (100.0 * taskSnapshot.getBytesTransferred()) / taskSnapshot.getTotalByteCount();
-
-                            //displaying percentage in progress dialog
-                            progressDialog.setMessage("Uploaded " + ((int) progress) + "%...");
-                        }
-                    });
-        }
-        //if there is not any file
-        else {
-            //you can display an error toast
-        }
-    }
+    } */
 }

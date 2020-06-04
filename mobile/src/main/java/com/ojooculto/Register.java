@@ -14,7 +14,8 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
-import com.ojooculto.R;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
@@ -22,20 +23,19 @@ import com.google.android.gms.tasks.Task;
 import com.google.firebase.auth.AuthResult;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
-import com.google.firebase.firestore.DocumentReference;
-import com.google.firebase.firestore.FirebaseFirestore;
+import com.ojooculto.Info.Encriptar;
 
 import java.util.HashMap;
 import java.util.Map;
 
 public class Register extends AppCompatActivity {
+
     public static final String TAG = "TAG";
     EditText mFullName,mEmail,mPassword,mPhone;
     Button mRegisterBtn;
     TextView mLoginBtn;
     FirebaseAuth fAuth;
     ProgressBar progressBar;
-    FirebaseFirestore fStore;
     String userID;
 
     @Override
@@ -51,7 +51,6 @@ public class Register extends AppCompatActivity {
         mLoginBtn   = findViewById(R.id.createText);
 
         fAuth = FirebaseAuth.getInstance();
-        fStore = FirebaseFirestore.getInstance();
         progressBar = findViewById(R.id.progressBar);
 
         if(fAuth.getCurrentUser() != null){
@@ -59,12 +58,11 @@ public class Register extends AppCompatActivity {
             finish();
         }
 
-
         mRegisterBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 final String email = mEmail.getText().toString().trim();
-                String password = mPassword.getText().toString().trim();
+                final String password = mPassword.getText().toString().trim();
                 final String fullName = mFullName.getText().toString();
                 final String phone    = mPhone.getText().toString();
 
@@ -109,24 +107,33 @@ public class Register extends AppCompatActivity {
 
                             Toast.makeText(Register.this, "User Created.", Toast.LENGTH_SHORT).show();
                             userID = fAuth.getCurrentUser().getUid();
-                            DocumentReference documentReference = fStore.collection("users").document(userID);
+                            DatabaseReference ref = FirebaseDatabase.getInstance().getReference("Usuarios")
+                                    .child(userID);
                             Map<String,Object> user = new HashMap<>();
+                            user.put("id",userID);
+                            user.put("numeroAlerta","1233");
                             user.put("fName",fullName);
                             user.put("email",email);
                             user.put("phone",phone);
-                            documentReference.set(user).addOnSuccessListener(new OnSuccessListener<Void>() {
-                                @Override
-                                public void onSuccess(Void aVoid) {
-                                    Log.d(TAG, "onSuccess: user Profile is created for "+ userID);
-                                }
-                            }).addOnFailureListener(new OnFailureListener() {
-                                @Override
-                                public void onFailure(@NonNull Exception e) {
-                                    Log.d(TAG, "onFailure: " + e.toString());
-                                }
-                            });
-                            startActivity(new Intent(getApplicationContext(),MainActivity.class));
+                            try {
+                                user.put("password", Encriptar.encriptar(password));
+                            } catch (Exception ignored) {
 
+                            }
+                            user.put("img","default");
+                            user.put("code",1234);
+                            ref.updateChildren(user)
+                                    .addOnCompleteListener(new OnCompleteListener<Void>() {
+                                        @Override
+                                        public void onComplete(@NonNull Task<Void> task) {
+                                            if (task.isSuccessful()) {
+                                                startActivity(new Intent(getApplicationContext(),MainActivity.class));
+                                            } else {
+                                                Toast.makeText(Register.this, "Error, intentelo mas tarde", Toast.LENGTH_SHORT).show();
+                                                progressBar.setVisibility(View.GONE);
+                                            }
+                                        }
+                                    });
                         }else {
                             Toast.makeText(Register.this, "Error ! " + task.getException().getMessage(), Toast.LENGTH_SHORT).show();
                             progressBar.setVisibility(View.GONE);
